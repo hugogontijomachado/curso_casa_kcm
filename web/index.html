@@ -126,6 +126,7 @@ function montarXyz(mol, modo) {
 }
 
 function desenhar(mol, modo) {
+  visualizador.stopAnimate();
   visualizador.clear();
   visualizador.addModel(montarXyz(mol, modo), "xyz");
   visualizador.setStyle({}, {
