@@ -8,6 +8,10 @@ estática única. Material para curso.
 atual, as decisões já tomadas, o que foi descoberto e o backlog de correções
 pendentes com localização e correção de cada uma.
 
+`docs/tutorial-sessao.md` documenta como este projeto foi construído — o fluxo
+completo, os prompts, as decisões e os erros. É material didático sobre uso do
+harness e engenharia de contexto, não sobre química.
+
 ## Ambiente — armadilhas conhecidas
 
 Estas custaram tempo para descobrir. Não redescubra.

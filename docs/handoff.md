@@ -313,3 +313,7 @@ shasum -a 256 web/data.json
 O processo completo desta sessão (spec → plano → execução por subagentes com
 revisão por tarefa) está em `docs/superpowers/specs/` e
 `docs/superpowers/plans/`.
+
+`docs/tutorial-sessao.md` narra esse processo como tutorial: os prompts reais,
+os oito pontos de decisão com as respostas, as técnicas de engenharia de contexto
+usadas, e os três erros da sessão com o que cada um ensina.
