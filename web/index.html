@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frequências vibracionais com MLIP</title>
+<script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+<style>
+  :root {
+    --fundo: #0f1115;
+    --painel: #171a21;
+    --borda: #262b35;
+    --texto: #e6e9ef;
+    --suave: #949cad;
+    --destaque: #5eb0ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--fundo);
+    color: var(--texto);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  header {
+    padding: 20px 24px 12px;
+    border-bottom: 1px solid var(--borda);
+  }
+  h1 { margin: 0 0 4px; font-size: 19px; font-weight: 600; }
+  .sub { color: var(--suave); font-size: 13px; }
+  .abas {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 14px 24px; border-bottom: 1px solid var(--borda);
+  }
+  .aba {
+    padding: 6px 13px; border: 1px solid var(--borda); border-radius: 999px;
+    background: var(--painel); color: var(--suave);
+    cursor: pointer; font-size: 13px; font-family: inherit;
+  }
+  .aba:hover { color: var(--texto); }
+  .aba[aria-selected="true"] {
+    background: var(--destaque); border-color: var(--destaque); color: #04121f; font-weight: 600;
+  }
+  main {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 20px; padding: 20px 24px; align-items: start;
+  }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  #viewer {
+    position: relative; width: 100%; height: 460px;
+    background: var(--painel); border: 1px solid var(--borda); border-radius: 10px;
+  }
+  .dica { margin-top: 8px; color: var(--suave); font-size: 12px; }
+  .painel {
+    background: var(--painel); border: 1px solid var(--borda);
+    border-radius: 10px; padding: 16px;
+  }
+  .ficha { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin-bottom: 18px; }
+  .ficha div { font-size: 13px; }
+  .ficha span { display: block; color: var(--suave); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; color: var(--suave); font-weight: 500; font-size: 11px;
+    text-transform: uppercase; letter-spacing: .04em;
+    padding: 6px 8px; border-bottom: 1px solid var(--borda);
+  }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--borda); }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: #1e222b; }
+  tbody tr[aria-selected="true"] { background: #16324d; color: var(--destaque); }
+  .imag { color: #ff8f6b; }
+  footer { padding: 8px 24px 28px; color: var(--suave); font-size: 12px; }
+  .erro { padding: 24px; color: #ff8f6b; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Otimização e frequências vibracionais de moléculas pequenas</h1>
+  <div class="sub" id="legenda">carregando…</div>
+</header>
+
+<div class="abas" id="abas" role="tablist"></div>
+
+<main>
+  <div>
+    <div id="viewer"></div>
+    <div class="dica">Arraste para girar, role para aproximar. Clique numa frequência para animar o modo normal.</div>
+  </div>
+  <div class="painel">
+    <div class="ficha" id="ficha"></div>
+    <table>
+      <thead>
+        <tr>
+          <th class="num">#</th>
+          <th class="num">Frequência (cm⁻¹)</th>
+          <th>Modo</th>
+        </tr>
+      </thead>
+      <tbody id="modos"></tbody>
+    </table>
+  </div>
+</main>
+
+<footer id="rodape"></footer>
+
+<script>
+let dados = null;
+let molecula = null;
+let visualizador = null;
+let modoSelecionado = null;
+
+/** Monta um XYZ. Com `modo`, acrescenta as colunas dx dy dz que o 3Dmol usa para vibrar. */
+function montarXyz(mol, modo) {
+  const linhas = [String(mol.n_atoms), mol.formula];
+  mol.atoms.symbols.forEach((simbolo, i) => {
+    const [x, y, z] = mol.atoms.positions[i];
+    const base = `${simbolo} ${x.toFixed(5)} ${y.toFixed(5)} ${z.toFixed(5)}`;
+    if (!modo) {
+      linhas.push(base);
+      return;
+    }
+    const [dx, dy, dz] = modo.vectors[i];
+    linhas.push(`${base} ${dx.toFixed(5)} ${dy.toFixed(5)} ${dz.toFixed(5)}`);
+  });
+  return linhas.join("\n") + "\n";
+}
+
+function desenhar(mol, modo) {
+  visualizador.clear();
+  visualizador.addModel(montarXyz(mol, modo), "xyz");
+  visualizador.setStyle({}, {
+    stick: { radius: 0.13, colorscheme: "Jmol" },
+    sphere: { scale: 0.24, colorscheme: "Jmol" },
+  });
+  if (modo) {
+    visualizador.vibrate(12, 1.4, true);
+    visualizador.animate({ loop: "backAndForth", reps: 0, interval: 55 });
+  }
+  visualizador.zoomTo();
+  visualizador.render();
+}
+
+function renderFicha(mol) {
+  const campos = [
+    ["Fórmula", mol.formula],
+    ["Átomos", mol.n_atoms],
+    ["Geometria", mol.is_linear ? "linear" : "não linear"],
+    ["Modos vibracionais", mol.modes.length],
+    ["Energia de ponto zero", `${mol.zpe_eV.toFixed(4)} eV`],
+    ["Energia potencial", `${mol.energy_eV.toFixed(3)} eV`],
+  ];
+  document.getElementById("ficha").innerHTML = campos
+    .map(([rotulo, valor]) => `<div><span>${rotulo}</span>${valor}</div>`)
+    .join("");
+}
+
+function renderModos(mol) {
+  const corpo = document.getElementById("modos");
+  corpo.innerHTML = mol.modes
+    .map((modo, i) => {
+      const classe = modo.imaginary ? ' class="num imag"' : ' class="num"';
+      const rotulo = modo.imaginary ? "imaginário" : "vibração";
+      return `<tr data-i="${i}"><td class="num">${i + 1}</td>` +
+             `<td${classe}>${modo.freq_cm1.toFixed(1)}</td><td>${rotulo}</td></tr>`;
+    })
+    .join("");
+
+  corpo.querySelectorAll("tr").forEach((linha) => {
+    linha.addEventListener("click", () => {
+      const i = Number(linha.dataset.i);
+      modoSelecionado = modoSelecionado === i ? null : i;
+      corpo.querySelectorAll("tr").forEach((outra) => {
+        outra.setAttribute("aria-selected", String(Number(outra.dataset.i) === modoSelecionado));
+      });
+      desenhar(molecula, modoSelecionado === null ? null : molecula.modes[modoSelecionado]);
+    });
+  });
+}
+
+function selecionar(id) {
+  molecula = dados.molecules.find((m) => m.id === id);
+  modoSelecionado = null;
+  document.querySelectorAll(".aba").forEach((aba) => {
+    aba.setAttribute("aria-selected", String(aba.dataset.id === id));
+  });
+  renderFicha(molecula);
+  renderModos(molecula);
+  desenhar(molecula, null);
+}
+
+async function iniciar() {
+  try {
+    const resposta = await fetch("data.json");
+    if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+    dados = await resposta.json();
+  } catch (erro) {
+    document.querySelector("main").innerHTML =
+      `<div class="erro">Não foi possível carregar data.json: ${erro.message}</div>`;
+    return;
+  }
+
+  document.getElementById("legenda").textContent =
+    `${dados.molecules.length} moléculas · potencial ${dados.model.name} · ` +
+    `aproximação harmônica · relaxação até fmax = ${dados.settings.fmax_eV_per_A} eV/Å`;
+  document.getElementById("rodape").textContent =
+    `Cálculos gerados em ${dados.generated} com ASE e MACE via AtomisticSkills. ` +
+    `As frequências são harmônicas e ficam sistematicamente acima das fundamentais ` +
+    `medidas experimentalmente, que incluem anarmonicidade.`;
+
+  document.getElementById("abas").innerHTML = dados.molecules
+    .map((m) => `<button class="aba" role="tab" data-id="${m.id}">${m.name} · ${m.formula}</button>`)
+    .join("");
+  document.querySelectorAll(".aba").forEach((aba) => {
+    aba.addEventListener("click", () => selecionar(aba.dataset.id));
+  });
+
+  visualizador = $3Dmol.createViewer(document.getElementById("viewer"), {
+    backgroundColor: "#171a21",
+  });
+
+  selecionar(dados.molecules[0].id);
+}
+
+iniciar();
+</script>
+</body>
+</html>
